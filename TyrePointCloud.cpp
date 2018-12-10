@@ -1,7 +1,8 @@
 //2018/12/3 TonyHE Create file
 //2018/12/3 TonyHE Add class TyrePointCloud functions
-//2018/12/5 TonyHE Modified the return list in FindPins function. 
-//2018/12/9 TonyHE Realizated the method of segementation searching for pins.
+//2018/12/5 TonyHE Modify the return list in FindPins function. 
+//2018/12/9 TonyHE Realize the method of segementation searching for pins.
+//2018/12/10 TonyHE Add set functions for SegSearching properties.
 
 #include "stdafx.h"
 #include "TyrePointCloud.h"

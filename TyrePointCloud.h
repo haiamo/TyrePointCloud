@@ -1,6 +1,7 @@
 //2018/12/3 TonyHE Create file 
 //2018/12/3 TonyHE Add enum TPCStatus and class TyrePointCloud
 //2018/12/9 TonyHE Add Segementation searching method
+//2018/12/10 TonyHE Add Properties for SegSearching
 #pragma once
 
 #define ACCURACY 10e-6
