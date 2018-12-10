@@ -9,12 +9,31 @@
 TyrePointCloud::TyrePointCloud()
 {
 	m_normalUserDefined = FALSE;
+
+	//Segementation Properties:
+	m_downsampleradius = 300;
+	m_numberofthreds = 2;
+	m_distancethreshold = 300;
+	m_normaldistanceweight = 0.5;
+	m_inlierratio = 0.2;
+	m_clustertolerance = 1000;
+
+	//Protected point clouds;
+	m_originPC.reset(::new PointCloud<PointXYZ>);
+	m_downsample.reset(::new PointCloud<PointXYZ>);
+	m_segbase.reset(::new PointCloud<PointXYZ>);
+	m_candPins.reset(::new PointCloud<PointXYZI>);
+	m_rgbPC.reset(::new PointCloud<PointXYZRGB>);
+	m_pointNormals.reset(::new PointCloud<Normal>);
 }
 
 
 TyrePointCloud::~TyrePointCloud()
 {
 	m_originPC.reset();
+	m_downsample.reset();
+	m_segbase.reset();
+	m_candPins.reset();
 	m_pinsPC.reset();
 	m_rgbPC.reset();
 	m_pointNormals.reset();
@@ -80,6 +99,36 @@ PointCloud<PointXYZRGB>::Ptr TyrePointCloud::GetRGBPC()
 PointCloud<Normal>::Ptr TyrePointCloud::GetPointNormals()
 {
 	return m_pointNormals;
+}
+
+void TyrePointCloud::SetDownSampleRaius(float dsr)
+{
+	m_downsampleradius = dsr;
+}
+
+void TyrePointCloud::SetNumberOfThreads(unsigned int nt)
+{
+	m_numberofthreds = nt;
+}
+
+void TyrePointCloud::SetDistanceThreshold(double dt)
+{
+	m_distancethreshold = dt;
+}
+
+void TyrePointCloud::SetNormalDistanceWeight(double ndw)
+{
+	m_normaldistanceweight = ndw;
+}
+
+void TyrePointCloud::SetInlierRatio(double ir)
+{
+	m_inlierratio = ir;
+}
+
+void TyrePointCloud::SetClusterTolerance(double ct)
+{
+	m_clustertolerance = ct;
 }
 
 int TyrePointCloud::LoadTyrePC(string pcfile)
@@ -392,11 +441,10 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 	Vector3d mineigenVector(eigenVecotorsPCA(0, 0), eigenVecotorsPCA(0, 1), eigenVecotorsPCA(0, 2));
 
 	//Downsample the dataset, Needed?
-	float downsample_r = 300;
 	pcl::VoxelGrid<pcl::PointXYZ> vg;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(::new pcl::PointCloud<pcl::PointXYZ>);
 	vg.setInputCloud(m_originPC);
-	vg.setLeafSize(downsample_r, downsample_r, downsample_r);
+	vg.setLeafSize(m_downsampleradius, m_downsampleradius, m_downsampleradius);
 	vg.filter(*cloud_filtered);
 	m_downsample = cloud_filtered;
 
@@ -404,7 +452,7 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 	pcl::NormalEstimationOMP<PointXYZ, pcl::Normal> ne;
 	PointCloud<Normal>::Ptr cur_normal(::new PointCloud<Normal>);
 	pcl::search::KdTree<PointXYZ>::Ptr tree(::new pcl::search::KdTree<PointXYZ>());
-	ne.setNumberOfThreads(2);
+	ne.setNumberOfThreads(m_numberofthreds);
 	ne.setSearchMethod(tree);
 	ne.setInputCloud(cloud_filtered);
 	ne.setKSearch(50);
@@ -422,16 +470,14 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 	pcl::ModelCoefficients::Ptr coefficients(::new pcl::ModelCoefficients);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane(::new pcl::PointCloud<pcl::PointXYZ>());
-	double distThreshold = 300;
-	double normDistWght =0.5;
 	seg.setOptimizeCoefficients(true);
 	seg.setModelType(pcl::SacModel::SACMODEL_CYLINDER);
 	seg.setMethodType(pcl::SAC_RANSAC);
 	seg.setMaxIterations(10000);
-	seg.setDistanceThreshold(distThreshold);
+	seg.setDistanceThreshold(m_distancethreshold);
 	seg.setRadiusLimits(0, 100000);
 	seg.setInputNormals(cur_normal);
-	seg.setNormalDistanceWeight(normDistWght);
+	seg.setNormalDistanceWeight(m_normaldistanceweight);
 
 
 	PointCloud<PointXYZ>::Ptr cloud_f(::new PointCloud<PointXYZ>);
@@ -442,7 +488,7 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 		m_segbase.reset(::new PointCloud<PointXYZ>);
 	}
 	BOOL bNormalRenewed = TRUE;
-	while (cloud_filtered->points.size() > 0.2 * nr_points)
+	while (cloud_filtered->points.size() > m_inlierratio * nr_points)
 	{
 		// Segment the largest planar component from the remaining cloud
 		seg.setInputCloud(cloud_filtered);
@@ -451,7 +497,6 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 			ne.setSearchMethod(tree);
 			ne.setInputCloud(cloud_filtered);
 			ne.compute(*cur_normal);
-			bNormalRenewed = FALSE;
 		}
 		seg.setInputNormals(cur_normal);
 		seg.segment(*inliers, *coefficients);
@@ -482,6 +527,7 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 		cur_normal.reset(::new PointCloud<Normal>);
 		tree.reset(::new pcl::search::KdTree<PointXYZ>);
 		cloud_plane.reset(::new PointCloud<PointXYZ>);
+		bNormalRenewed = FALSE;
 	}
 	
 	// Creating the KdTree object for the search method of the extraction
@@ -490,8 +536,7 @@ int TyrePointCloud::FindPinsBySegmentation(PointCloud<PointXYZ>::Ptr in_pc, Poin
 
 	std::vector<pcl::PointIndices> cluster_indices;
 	pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-	float clusterTol = 10000;
-	ec.setClusterTolerance(clusterTol); 
+	ec.setClusterTolerance(m_clustertolerance); 
 	ec.setMinClusterSize(100);
 	ec.setMaxClusterSize(25000);
 	ec.setSearchMethod(tree);

@@ -55,6 +55,14 @@ public:
 private:
 	BOOL m_normalUserDefined;
 
+	//Segementation Properties:
+	float m_downsampleradius;
+	unsigned int m_numberofthreds;
+	double m_distancethreshold;
+	double m_normaldistanceweight;
+	double m_inlierratio;
+	float m_clustertolerance;
+
 protected:
 	PointCloud<PointXYZ>::Ptr m_originPC;//Original point cloud
 	PointCloud<PointXYZ>::Ptr m_downsample;//Original down sampling cloud.
@@ -71,6 +79,14 @@ public:
 	PointCloud<PointXYZRGB>::Ptr GetRGBPC();
 	PointCloud<Normal>::Ptr GetPointNormals();
 
+public:
+	//Set parameters:
+	void SetDownSampleRaius(float dsr);
+	void SetNumberOfThreads(unsigned int nt);
+	void SetDistanceThreshold(double dt);
+	void SetNormalDistanceWeight(double ndw);
+	void SetInlierRatio(double ir);
+	void SetClusterTolerance(double ct);
 
 public:
 	int LoadTyrePC(string pcfile);
